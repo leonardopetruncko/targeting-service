@@ -1,0 +1,5 @@
+# Config permissiva pra CI da Fase 3
+line-length = 200
+
+[lint]
+select = ["E9", "F63", "F7", "F82"]
