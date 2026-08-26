@@ -1,0 +1,55 @@
+name: CI/CD - targeting-service
+
+on:
+  pull_request:
+    branches: [main, master, dev]
+  push:
+    branches: [main, master, dev]
+
+concurrency:
+  group: targeting-service-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Build & Unit Test + Lint
+    uses: drop0rz/reusable-workflows/.github/workflows/python-quality.yml@main
+    with:
+      python-version: '3.11'
+
+  security:
+    name: DevSecOps - SAST & SCA
+    needs: quality
+    uses: drop0rz/reusable-workflows/.github/workflows/security-python.yml@main
+    with:
+      python-version: '3.11'
+      trivy-severity: 'CRITICAL'
+
+  docker:
+    name: Docker Build, Scan & Push
+    needs: security
+    if: github.event_name == 'push'
+    uses: drop0rz/reusable-workflows/.github/workflows/docker-build-push.yml@main
+    with:
+      dockerfile-path: 'Dockerfile.targeting'
+      image-name: 'targeting-service'
+      push-image: true
+      trivy-severity: 'CRITICAL'
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+
+  update-gitops:
+    name: Atualiza tag no repo GitOps
+    needs: docker
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: drop0rz/reusable-workflows/.github/workflows/update-gitops.yml@main
+    with:
+      gitops-repo: 'drop0rz/toogle-master-gitops'
+      service-name: 'targeting-service'
+      image-uri: ${{ needs.docker.outputs.image-uri }}
+      manifest-path: 'apps/targeting-service/deployment.yaml'
+    secrets:
+      GITOPS_PUSH_TOKEN: ${{ secrets.GITOPS_PUSH_TOKEN }}
+

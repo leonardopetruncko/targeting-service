@@ -1,0 +1,42 @@
+name: Container Build Workflow
+
+on:
+  workflow_call:
+    inputs:
+      dockerfile-path:
+        description: 'Caminho para o Dockerfile'
+        required: false
+        type: string
+        default: 'Dockerfile'
+      image-name:
+        description: 'Nome da imagem Docker'
+        required: false
+        type: string
+        default: 'service'
+      push-image:
+        description: 'Se deve fazer push da imagem'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ inputs.dockerfile-path }}
+          push: ${{ inputs.push-image }}
+          tags: |
+            ${{ inputs.image-name }}:latest
+            ${{ inputs.image-name }}:${{ github.sha }} 

@@ -1,0 +1,33 @@
+name: DevSecOps Build Pipeline
+
+on:
+  push:
+    branches: [main, master, dev]
+
+concurrency:
+  group: build-pipeline-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Code Quality Checks
+    uses: ./.github/workflows/reusable-python-quality.yml
+    with:
+      python-version: "3.11"
+
+  security:
+    name: DevSecOps Security Analysis
+    needs: quality
+    uses: ./.github/workflows/reusable-security.yml
+    with:
+      python-version: "3.11"
+      trivy-severity: "CRITICAL,HIGH"
+
+  build:
+    name: Docker Container Build
+    needs: security
+    uses: ./.github/workflows/reusable-build.yml
+    with:
+      dockerfile-path: "Dockerfile.targeting"
+      image-name: "targeting-service"
+      push-image: false
